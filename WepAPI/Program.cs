@@ -4,10 +4,13 @@ using Autofac.Extensions.DependencyInjection;
 using Business.Abstract;
 using Business.Concrete;
 using Business.DependencyResolvers.Autofac;
+using Core.DependencyResolvers;
+using Core.Utilities.IoC;
 using Core.Utilities.Security.Encryption;
 using Core.Utilities.Security.JWT;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Core.Utilities.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 //builder.Services.AddSingleton<IProductService, ProductManager>();
@@ -15,7 +18,11 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 var tokenOptions = builder.Configuration.GetSection("TokenOptions").Get<TokenOptions>();
-
+builder.Services.AddDependencyResolvers(new ICoreModule[]
+{
+    new CoreModule()
+});
+builder.Services.AddCors();
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -30,6 +37,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             IssuerSigningKey = SecurityKeyHelper.CreateSecurityKey(tokenOptions.SecurityKey)
         };
     });
+
 builder.Host.UseServiceProviderFactory(new AutofacServiceProviderFactory(options =>
     options.RegisterModule(new AutofacBusinessModule())
 ));
@@ -44,7 +52,10 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+
 }
+app.ConfigureCustomExceptionMiddleware();
+app.UseCors(builder => builder.WithOrigins("http://localhost:4200").AllowAnyHeader());
 app.UseAuthentication();
 
 app.UseAuthorization();
@@ -52,3 +63,4 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
